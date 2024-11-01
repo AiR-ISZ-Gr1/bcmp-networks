@@ -1,1 +1,1 @@
-from .demo import simulate
+from .simulate import simulate

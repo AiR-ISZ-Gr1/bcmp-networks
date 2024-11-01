@@ -2,4 +2,4 @@ from bcmp.simulation import simulate
 
 
 # Example usage:
-# simulate()
+# simulate("configs/networks/example2.json", duration=60)

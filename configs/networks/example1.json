@@ -1,0 +1,150 @@
+{
+  "servers": [
+    {
+      "id": 1,
+      "type": "fifo",
+      "params": {
+        "buffer_size": 5
+      },
+      "process": {
+        "type": "exponential",
+        "params": {
+          "lambda_": 0.1
+        }
+      },
+      "routes": {
+        "type1": {
+          "type": "random",
+          "routes": [
+            {
+              "probability": 0.5,
+              "destination": 2,
+              "request": "type1"
+            },
+            {
+              "probability": 0.5,
+              "destination": 2,
+              "request": "type2"
+            }
+          ]
+        },
+        "type2": {
+          "type": "random",
+          "routes": [
+            {
+              "probability": 0.5,
+              "destination": 2,
+              "request": "type1"
+            },
+            {
+              "probability": 0.5,
+              "destination": 2,
+              "request": "type2"
+            }
+          ]
+        },
+        "type3": {
+          "type": "random",
+          "routes": [
+            {
+              "probability": 1.0,
+              "destination": 3,
+              "request": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "fifo",
+      "params": {
+        "buffer_size": 5
+      },
+      "process": {
+        "type": "exponential",
+        "params": {
+          "lambda_": 0.1
+        }
+      },
+      "routes": {
+        "type1": {
+          "type": "random",
+          "routes": [
+            {
+              "probability": 1.0,
+              "destination": 1,
+              "request": "type2"
+            }
+          ]
+        },
+        "type2": {
+          "type": "random",
+          "routes": [
+            {
+              "probability": 1.0,
+              "destination": 1,
+              "request": "type2"
+            }
+          ]
+        },
+        "type3": {
+          "type": "random",
+          "routes": [
+            {
+              "probability": 1.0,
+              "destination": 1,
+              "request": "type2"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "fifo",
+      "params": {
+        "buffer_size": 4
+      },
+      "process": {
+        "type": "exponential",
+        "params": {
+          "lambda_": 0.1
+        }
+      },
+      "routes": {
+        "type1": {
+          "type": "random",
+          "routes": [
+            {
+              "probability": 1.0,
+              "destination": 1,
+              "request": null
+            }
+          ]
+        },
+        "type2": {
+          "type": "random",
+          "routes": [
+            {
+              "probability": 1.0,
+              "destination": 1,
+              "request": null
+            }
+          ]
+        },
+        "type3": {
+          "type": "random",
+          "routes": [
+            {
+              "probability": 1.0,
+              "destination": 1,
+              "request": null
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "generators": []
+}
