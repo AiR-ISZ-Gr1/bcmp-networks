@@ -1,7 +1,10 @@
 import streamlit as st
 import json
+import os
 
-# Function to generate JSON configuration
+if "filename" not in st.session_state:
+    st.session_state["filename"] = "configuration.json"  # Default filename
+
 def generate_configuration(servers, generators):
     config = {
         "servers": servers,
@@ -9,7 +12,9 @@ def generate_configuration(servers, generators):
     }
     return config
 
-# Sidebar for server configuration
+st.sidebar.title("Configuration Settings")
+st.sidebar.text_input("Output Filename", value="configuration.json", key="filename")
+
 st.sidebar.title("Server Configuration")
 servers = []
 num_servers = st.sidebar.number_input("Number of Servers", min_value=1, max_value=10, step=1)
@@ -20,7 +25,6 @@ for i in range(num_servers):
     server_type = st.sidebar.selectbox(f"Server {i + 1} Type", ["fifo", "lifo-pr", "ps", "is"], key=f"type_{i}")
     buffer_size = st.sidebar.number_input(f"Buffer Size for Server {i + 1}", min_value=0, value=5, key=f"buffer_{i}")
 
-    # Process configurations for each request type
     processes = {}
     for req_type in ["type1", "type2", "type3"]:
         process_type = st.sidebar.selectbox(f"Process Type for {req_type} in Server {i + 1}", ["exponential", "poisson"], key=f"process_{req_type}_{i}")
@@ -32,7 +36,6 @@ for i in range(num_servers):
             }
         }
 
-    # Routes configuration for each request type
     routes = {}
     for req_type in ["type1", "type2", "type3"]:
         route_type = st.sidebar.selectbox(f"Route Type for {req_type} in Server {i + 1}", ["random", "round_robin"], key=f"route_{req_type}_{i}")
@@ -52,7 +55,6 @@ for i in range(num_servers):
             "routes": route_list
         }
 
-    # Adding each server's config to the servers list
     servers.append({
         "id": server_id,
         "type": server_type,
@@ -61,7 +63,6 @@ for i in range(num_servers):
         "routes": routes
     })
 
-# Sidebar for generator configuration
 st.sidebar.title("Generator Configuration")
 generators = []
 num_generators = st.sidebar.number_input("Number of Generators", min_value=0, max_value=10, step=1)
@@ -85,10 +86,14 @@ for i in range(num_generators):
         }
     })
 
-# Display generated JSON configuration
 st.write("### Generated Configuration JSON")
 config = generate_configuration(servers, generators)
 st.json(config)
 
-# Button to download JSON
-st.download_button("Download Configuration as JSON", json.dumps(config, indent=4), "configuration.json", "application/json")
+current_directory = os.path.dirname(os.path.abspath(__file__))
+filename = st.session_state["filename"]
+file_path = os.path.join(current_directory, filename)
+with open(file_path, "w") as f:
+    json.dump(config, f, indent=4)
+
+st.write(f"Configuration saved to `{filename}` in the current directory.")
