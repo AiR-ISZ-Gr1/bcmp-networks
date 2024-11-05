@@ -136,6 +136,8 @@ class ServerFIFO(BaseServer):
         self._log(request, "🚀 Started", f"({processing_time}s to go)")
 
     def receive(self, request: Request) -> bool:
+        self._log(request, "Received")
+
         if self._queue.full():
             self._log(request, "❌ Rejected", "(queue full)")
             return False
@@ -172,6 +174,8 @@ class ServerPS(BaseServer):
             del self._time_left[request_id]
 
     def receive(self, request: Request) -> bool:
+        self._log(request, "⏸️  Received")
+
         processing_time = self._get_processing_time(request.type)
 
         self._processing[request.id] = request
@@ -207,6 +211,8 @@ class ServerIS(BaseServer):
             del self._wait_until[request_id]
 
     def receive(self, request: Request) -> bool:
+        self._log(request, "⏸️  Received")
+        
         processing_time = self._get_processing_time(request.type)
         self._processing[request.id] = request
         self._wait_until[request.id] = self._timer.time + processing_time
@@ -250,6 +256,8 @@ class ServerLIFOPR(BaseServer):
             self._in_progress.remove(request)
 
     def receive(self, request: Request) -> bool:
+        self._log(request, "⏸️  Received")
+        
         processing_time = self._get_processing_time(request.type)
         request.metadata['processing_time'] = f"{
             processing_time.total_seconds():.3f}"
