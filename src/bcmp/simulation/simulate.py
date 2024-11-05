@@ -58,4 +58,4 @@ def simulate(config_path: str | Path, duration: float = 5):
 
 if __name__ == '__main__':
     # simulate("configs/networks/example1.json")
-    simulate("configs/networks/example2.json", duration=60)
+    simulate("configs/networks/example2.json", duration=300)

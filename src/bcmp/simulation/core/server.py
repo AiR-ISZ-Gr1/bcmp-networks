@@ -93,7 +93,7 @@ class BaseServer(ABC):
 
         if new_type and new_type != request.type:
             self._log(request, "🔀 Swapped", f"({request.type.value}→{new_type.value})",
-                      old_type=request.type.value, new_type=new_type.value)
+                      new_type=new_type.value)
             request.type = new_type
 
         self._message_bus.send(receiver, request)
@@ -212,7 +212,7 @@ class ServerIS(BaseServer):
 
     def receive(self, request: Request) -> bool:
         self._log(request, "⏸️  Received")
-        
+
         processing_time = self._get_processing_time(request.type)
         self._processing[request.id] = request
         self._wait_until[request.id] = self._timer.time + processing_time
@@ -257,7 +257,7 @@ class ServerLIFOPR(BaseServer):
 
     def receive(self, request: Request) -> bool:
         self._log(request, "⏸️  Received")
-        
+
         processing_time = self._get_processing_time(request.type)
         request.metadata['processing_time'] = f"{
             processing_time.total_seconds():.3f}"
