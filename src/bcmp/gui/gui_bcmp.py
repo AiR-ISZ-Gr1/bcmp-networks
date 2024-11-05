@@ -6,7 +6,7 @@ import graphviz
 PATIENT_TYPES = ["Krytyczny", "Stabilny", "Symulant"]
 NODE_TYPES = ["Rejestracja", "Poczekalnia", "Badania", "Gabinet lekarski", 
               "Sala przyjęć", "Oddział", "Wejście", "Wyjście"]
-SERVER_TYPES = ["FIFO", "LIFO", "PS", "IS"]
+SERVER_TYPES = ["FIFO", "LIFO-PR", "PS", "IS"]
 COLOR_MAP = {"Krytyczny": "red", "Stabilny": "forestgreen", "Symulant": "gold"}
 DEFAULT_LAMBDA = 1.0
 DEFAULT_BUFFER_SIZE = 5
@@ -110,10 +110,8 @@ class NetworkManager:
         self.state["graph"].remove_edges_from(edges_to_remove)
 
         for patient_type, route_info in transformation_probs.items():
-            # Filter out routes with zero probability
-            valid_routes = [route for route in route_info['routes'] if route['probability'] > 0]
+            valid_routes = [route for route in route_info['routes']]
             
-            # Update routes for both server nodes and generators
             if valid_routes:  # Only add if there are valid routes
                 transformation_probs[patient_type]['routes'] = valid_routes
                 self.state["nodes"][source]['routes'][patient_type] = {
@@ -124,12 +122,14 @@ class NetworkManager:
             # Add edges to graph for visualization
             for route in valid_routes:
                 destination_label = route['destination']
-                if destination_label in self.state["nodes"]:
+                if destination_label in self.state["nodes"] and route['probability'] > 0.001:
                     destination_id = self.state["nodes"][destination_label]["id"]
+                    patient_color = route['request']
+                    # st.write(route, patient_type)
                     self.state["graph"].add_edge(
                         source,
                         destination_label,
-                        color=COLOR_MAP.get(patient_type, "black"),
+                        color=COLOR_MAP.get(patient_color, "black"),
                         label=f"{patient_type} ({route['probability']:.1f})"
                     )
 
@@ -218,24 +218,23 @@ class NetworkManager:
                         
                         # Process each route
                         for route in route_data["routes"]:
-                            if route["probability"] > 0:  # Only include non-zero probabilities
-                                dest_label = route["destination"]
-                                if "Wyjście" in dest_label:
-                                    # Set destination and request to null for exit nodes
-                                    cleaned_route = {
-                                        "probability": route["probability"],
-                                        "destination": None,
-                                        "request": None
-                                    }
-                                else:
-                                    # Convert destination label to ID for other nodes
-                                    dest_id = self.state["nodes"][dest_label]["id"]
-                                    cleaned_route = {
-                                        "probability": route["probability"],
-                                        "destination": dest_id,
-                                        "request": route["request"]
-                                    }
-                                cleaned_routes[ptype]["routes"].append(cleaned_route)
+                            dest_label = route["destination"]
+                            if "Wyjście" in dest_label:
+                                # Set destination and request to null for exit nodes
+                                cleaned_route = {
+                                    "probability": route["probability"],
+                                    "destination": None,
+                                    "request_type": None
+                                }
+                            else:
+                                # Convert destination label to ID for other nodes
+                                dest_id = self.state["nodes"][dest_label]["id"]
+                                cleaned_route = {
+                                    "probability": route["probability"],
+                                    "destination": dest_id,
+                                    "request_type": route["request"]
+                                }
+                            cleaned_routes[ptype]["routes"].append(cleaned_route)
                         
                         # Only include patient type if it has valid routes
                         if not cleaned_routes[ptype]["routes"]:

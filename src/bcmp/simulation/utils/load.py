@@ -33,7 +33,7 @@ def create_server(config: ServerConfig, message_bus: MessageBus, timer: Timer, l
         logger=logger,
         timer=timer,
         message_bus=message_bus,
-        route_request=lambda request_type: route_request[request_type](),
+        route_request=lambda request_type: route_request[request_type.value](),
         get_processing_time=lambda request_type: next(get_processing_time[request_type])
     )
 
