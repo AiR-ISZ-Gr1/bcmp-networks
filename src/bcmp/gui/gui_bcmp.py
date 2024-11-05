@@ -1,0 +1,362 @@
+import streamlit as st
+import networkx as nx
+import json
+import graphviz
+# Constants
+PATIENT_TYPES = ["Krytyczny", "Stabilny", "Symulant"]
+NODE_TYPES = ["Rejestracja", "Poczekalnia", "Badania", "Gabinet lekarski", 
+              "Sala przyjęć", "Oddział", "Wejście", "Wyjście"]
+SERVER_TYPES = ["FIFO", "LIFO", "PS", "IS"]
+COLOR_MAP = {"Krytyczny": "red", "Stabilny": "forestgreen", "Symulant": "gold"}
+DEFAULT_LAMBDA = 1.0
+DEFAULT_BUFFER_SIZE = 5
+DEFAULT_PRIORITY = 1.0
+
+class NetworkManager:
+    def __init__(self):
+        if "network_manager" not in st.session_state:
+            st.session_state.network_manager = {
+                "graph": nx.DiGraph(),
+                "nodes": {},
+                "generators": {},
+                "layout": None
+            }
+        self.state = st.session_state.network_manager
+    
+    def add_node(self, node_type, label, **kwargs):
+        if node_type == "Wejście":
+            self._add_generator(label, kwargs)
+        elif node_type == "Wyjście":
+            self._add_output(label)
+        else:
+            self._add_server(label, node_type, kwargs)
+        
+        self.state["graph"].add_node(label, type=node_type)
+        self._update_layout()
+
+    def _add_generator(self, label, kwargs):
+        self.state["generators"][label] = {
+            "id": len(self.state["nodes"]) + 1,
+            "route": {},  # Empty route to be filled later
+            "priority": kwargs.get("priority", DEFAULT_PRIORITY),
+            "generate": {
+                "type": "poisson",
+                "params": {
+                    "lambda_": kwargs.get("type_lambda", DEFAULT_LAMBDA)
+                }
+            }
+        }
+        # Add to nodes as well for connection purposes
+        self.state["nodes"][label] = {
+            "id": len(self.state["nodes"]) + 1,
+            "type": "generator",
+            "routes": {}
+        }
+
+    def set_generator_route(self, generator_label, destination_label, request_type):
+        if generator_label in self.state["generators"] and destination_label in self.state["nodes"]:
+            destination_id = self.state["nodes"][destination_label]["id"]
+            self.state["generators"][generator_label]["route"] = {
+                "destination": destination_id,
+                "request_type": request_type
+            }
+            # Add edge to graph for visualization
+            self.state["graph"].add_edge(
+                generator_label,
+                destination_label,
+                color=COLOR_MAP.get(request_type, "black"),
+                label=f"{request_type}"
+            )
+
+    def _add_output(self, label):
+        self.state["nodes"][label] = {
+            "id": len(self.state["nodes"]) + 1,
+            "output": True
+        }
+
+    def _add_server(self, label, node_type, kwargs):
+        queue_type = kwargs.get("queue_type", "fifo")
+        patient_dict = kwargs.get("patient_dict", {})
+        processes = {
+            key: {"type": "exponential", "params": {"lambda_": value}}
+            for key, value in patient_dict.items() if value
+        }
+        
+        self.state["nodes"][label] = {
+            "id": len(self.state["nodes"]) + 1,
+            "type": queue_type.lower(),
+            "params": {"buffer_size": kwargs.get("buffer_size", DEFAULT_BUFFER_SIZE)} if queue_type.lower() == "fifo" else {},
+            "process": processes,
+            "routes": {}
+        }
+
+    def validate_probabilities(self, transformation_probs):
+        """Validate that probabilities sum to either 1 or 0 for each patient type"""
+        for patient_type, route_info in transformation_probs.items():
+            total_prob = sum(route['probability'] for route in route_info['routes'])
+            if not ((0.99 <= total_prob <= 1.01) or (-0.001 <= total_prob <= 0.01)):
+                return False, f"Probabilities for {patient_type} must sum to either 1 or 0 (current sum: {total_prob:.2f})"
+        return True, ""
+
+    def connect_nodes(self, source, transformation_probs):
+        # Validate probabilities first
+        is_valid, error_message = self.validate_probabilities(transformation_probs)
+        if not is_valid:
+            st.error(error_message)
+            return False
+
+        # Remove existing edges from this source
+        edges_to_remove = list(self.state["graph"].out_edges(source))
+        self.state["graph"].remove_edges_from(edges_to_remove)
+
+        for patient_type, route_info in transformation_probs.items():
+            # Filter out routes with zero probability
+            valid_routes = [route for route in route_info['routes'] if route['probability'] > 0]
+            
+            # Update routes for both server nodes and generators
+            if valid_routes:  # Only add if there are valid routes
+                transformation_probs[patient_type]['routes'] = valid_routes
+                self.state["nodes"][source]['routes'][patient_type] = {
+                    "type": "random",
+                    "routes": valid_routes
+                }
+
+            # Add edges to graph for visualization
+            for route in valid_routes:
+                destination_label = route['destination']
+                if destination_label in self.state["nodes"]:
+                    destination_id = self.state["nodes"][destination_label]["id"]
+                    self.state["graph"].add_edge(
+                        source,
+                        destination_label,
+                        color=COLOR_MAP.get(patient_type, "black"),
+                        label=f"{patient_type} ({route['probability']:.1f})"
+                    )
+
+        return True
+
+    def _update_layout(self):
+        if not self.state["layout"] or len(self.state["graph"]) != len(self.state["layout"]):
+            self.state["layout"] = nx.spring_layout(self.state["graph"], k=1, iterations=50)
+
+    def draw_graph(self):
+        if not self.state["graph"].nodes():
+            return
+        
+        # Create a new Graphviz object
+        dot = graphviz.Digraph()
+        dot.attr(rankdir='LR')  # Left to right layout
+        
+        # Set default node attributes
+        dot.attr('node', shape='rectangle', style='filled', fillcolor='white', 
+                fontname='Arial', width='1.5', height='0.6')
+        
+        # Add nodes
+        for node in self.state["graph"].nodes():
+            dot.node(node, node)
+        
+        # Add edges with proper formatting
+        for source, target, data in self.state["graph"].edges(data=True):
+            color = data.get("color", "black")
+            label = data.get("label", "")
+            
+            # Convert color names to hex codes for better visibility
+            color_map = {
+                "red": "#FF0000",
+                "forestgreen": "#228B22",
+                "gold": "#FFD700",
+                "black": "#000000"
+            }
+            edge_color = color_map.get(color, color)
+            
+            dot.edge(source, target, label=label, color=edge_color, 
+                    fontcolor=edge_color, penwidth='2')
+        
+        # Return the Graphviz object
+        return dot
+
+    def generate_json(self):
+        generators = []
+        for gen_label, gen_data in self.state["generators"].items():
+            generator = {
+                "id": gen_data["id"],
+                "route": {},
+                "priority": gen_data["priority"],
+                "generate": gen_data["generate"]
+            }
+            
+            # Convert destination label to ID for generator route
+            if gen_data["route"]:
+                dest_label = next((node_label for node_label, node in self.state["nodes"].items() 
+                                if node["id"] == gen_data["route"]["destination"]), None)
+                if dest_label and "Wyjście" not in dest_label:
+                    generator["route"] = {
+                        "destination": gen_data["route"]["destination"],
+                        "request_type": gen_data["route"]["request_type"]
+                    }
+                else:
+                    generator["route"] = {
+                        "destination": None,
+                        "request_type": None
+                    }
+            
+            generators.append(generator)
+
+        # Clean up servers format for JSON
+        servers = []
+        for server in self.state["nodes"].values():
+            if not server.get("output") and server.get("type") != "generator":
+                cleaned_routes = {}
+                
+                # Process each patient type's routes
+                for ptype, route_data in server.get("routes", {}).items():
+                    if route_data["routes"]:
+                        cleaned_routes[ptype] = {
+                            "type": "random",
+                            "routes": []
+                        }
+                        
+                        # Process each route
+                        for route in route_data["routes"]:
+                            if route["probability"] > 0:  # Only include non-zero probabilities
+                                dest_label = route["destination"]
+                                if "Wyjście" in dest_label:
+                                    # Set destination and request to null for exit nodes
+                                    cleaned_route = {
+                                        "probability": route["probability"],
+                                        "destination": None,
+                                        "request": None
+                                    }
+                                else:
+                                    # Convert destination label to ID for other nodes
+                                    dest_id = self.state["nodes"][dest_label]["id"]
+                                    cleaned_route = {
+                                        "probability": route["probability"],
+                                        "destination": dest_id,
+                                        "request": route["request"]
+                                    }
+                                cleaned_routes[ptype]["routes"].append(cleaned_route)
+                        
+                        # Only include patient type if it has valid routes
+                        if not cleaned_routes[ptype]["routes"]:
+                            del cleaned_routes[ptype]
+                
+                server_copy = server.copy()
+                server_copy["routes"] = cleaned_routes
+                servers.append(server_copy)
+
+        return {
+            "servers": servers,
+            "generators": generators
+        }
+
+def main():
+    st.title("Network Graph Builder")
+    
+    network = NetworkManager()
+    
+    # Sidebar for node creation
+    with st.sidebar:
+        st.header("Node Controls")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            node_type = st.selectbox("Node Type", NODE_TYPES)
+            node_label = st.text_input("Label", value=f"{node_type}-{len(network.state['nodes']) + 1}")
+
+        if node_type == "Wejście":
+            with col2:
+                patient_type = st.selectbox("Patient Type", PATIENT_TYPES)
+                patient_lambda = st.number_input("Lambda", 0.1, 10.0, DEFAULT_LAMBDA)
+                priority = st.number_input("Priority", 1.0, 5.0, DEFAULT_PRIORITY)
+                
+                # Add destination selection for generator
+                available_destinations = list(network.state["nodes"].keys())
+                if available_destinations:
+                    destination = st.selectbox("Initial Destination", available_destinations)
+                    if st.button("Add Node and Connect"):
+                        network.add_node(node_type, node_label, patient_type=patient_type,
+                                      type_lambda=patient_lambda, priority=priority)
+                        network.set_generator_route(node_label, destination, patient_type)
+                else:
+                    if st.button("Add Node"):
+                        network.add_node(node_type, node_label, patient_type=patient_type,
+                                      type_lambda=patient_lambda, priority=priority)
+
+        elif node_type != "Wyjście":
+            with col2:
+                server_type = st.selectbox("Server Type", SERVER_TYPES)
+                if server_type == "FIFO":
+                    buffer_size = st.number_input("Buffer Size", 1, 100, DEFAULT_BUFFER_SIZE)
+                
+                lambdas = {
+                    ptype: st.number_input(f"Lambda for {ptype}", 0.1, 10.0, DEFAULT_LAMBDA)
+                    for ptype in PATIENT_TYPES
+                }
+
+                if st.button("Add Node"):
+                    network.add_node(node_type, node_label, queue_type=server_type,
+                                   buffer_size=buffer_size if server_type == "FIFO" else None,
+                                   patient_dict=lambdas)
+        else:
+            if st.button("Add Node"):
+                network.add_node(node_type, node_label)
+
+        # Node connection controls
+        st.header("Connect Nodes")
+        source = st.selectbox("Source", list(network.state["nodes"].keys()), key="source")
+        
+        if source:
+            st.write("Configure routes for each patient type:")
+            transformation_probs = {}
+            
+            # Create tabs for each patient type
+            tabs = st.tabs(PATIENT_TYPES)
+            for i, ptype in enumerate(PATIENT_TYPES):
+                with tabs[i]:
+                    transformation_probs[ptype] = {"type": "random", "routes": []}
+                    probs = []
+                    dests = []
+                    
+                    for target_type in PATIENT_TYPES:
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            prob = st.number_input(f"Probability for {target_type}", 
+                                                0.0, 1.0, 0.0, 0.1,
+                                                key=f"prob_{source}_{ptype}_{target_type}")
+                            probs.append(prob)
+                        with col2:
+                            dest = st.selectbox(f"Destination for {target_type}",
+                                            list(network.state["nodes"].keys()),
+                                            key=f"dest_{source}_{ptype}_{target_type}")
+                            dests.append(dest)
+                    
+                    total_prob = sum(probs)
+                    st.write(f"Total probability: {total_prob:.2f}")
+                    if not ((0.99 <= total_prob <= 1.01) or (-0.001 <= total_prob <= 0.01)):
+                        st.warning("Total probability must equal either 1.0 or 0")
+                    
+                    for prob, dest, target_type in zip(probs, dests, PATIENT_TYPES):
+                        transformation_probs[ptype]['routes'].append({
+                            "probability": prob,
+                            "destination": dest,
+                            "request": target_type
+                        })
+
+            if st.button("Connect"):
+                network.connect_nodes(source, transformation_probs)
+
+    dot = network.draw_graph()
+    if dot:
+        st.graphviz_chart(dot)
+
+    # JSON generation
+    if st.button("Generate JSON"):
+        json_data = network.generate_json()
+        st.json(json_data)
+        json_str = json.dumps(json_data, indent=2)
+        st.download_button("Download JSON", data=json_str, 
+                          file_name="network.json", mime="application/json")
+
+if __name__ == "__main__":
+    main()
