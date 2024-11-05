@@ -35,7 +35,7 @@ def log_request(logger: Logger, timer: Timer, request: Request, message: str, me
 
     action = message.split(' ')[-1].lower()
     log_extra = dict(ts=timer.ts, action=action,
-                     request_id=request.id, **extra_kwargs)
+                     request_id=request.id, type=request.type.value, **extra_kwargs)
 
     log_func = logger.info if action in [
         'finished', 'processed', 'rejected'] else logger.debug
