@@ -60,4 +60,4 @@ if __name__ == '__main__':
     # simulate("configs/networks/example1.json")
     # simulate("configs/networks/example2.json", duration=60)
     # simulate("configs/networks/network_good.json", duration=60)
-    simulate("configs/networks/dwa.json", duration=2)
+    simulate("/Users/kacperjarzyna/Desktop/studia/kolejki/bcmp-networks/configs/networks/ex.json", duration=60)

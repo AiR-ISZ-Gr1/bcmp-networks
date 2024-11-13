@@ -1,13 +1,15 @@
 import streamlit as st
 import networkx as nx
-import json
+import json, os
 import graphviz
-# Constants
+from bcmp.simulation import simulate
+
 PATIENT_TYPES = ["Krytyczny", "Stabilny", "Symulant"]
 NODE_TYPES = ["Rejestracja", "Poczekalnia", "Badania", "Gabinet lekarski", 
               "Sala przyjęć", "Oddział", "Wejście", "Wyjście"]
 SERVER_TYPES = ["FIFO", "LIFO-PR", "PS", "IS"]
 COLOR_MAP = {"Krytyczny": "red", "Stabilny": "forestgreen", "Symulant": "gold"}
+COLOR_TYPES = {"FIFO":"#B3A254","LIFO-PR":"#8B4C4C","PS":"#4C6E8B","IS":"#4C8B57"}
 DEFAULT_LAMBDA = 1.0
 DEFAULT_BUFFER_SIZE = 5
 DEFAULT_PRIORITY = 1.0
@@ -16,7 +18,7 @@ class NetworkManager:
     def __init__(self,nodes={}):
         if "network_manager" not in st.session_state:
             st.session_state.network_manager = {
-                "graph": nx.DiGraph(),
+                "graph": nx.MultiDiGraph(),
                 "nodes": {},
                 "generators": {},
                 "layout": None
@@ -27,6 +29,7 @@ class NetworkManager:
                 self.add_node(node)
     
     def add_node(self, node_type, label, **kwargs):
+        queue_type = kwargs.get("queue_type")
         if node_type == "Wejście":
             self._add_generator(label, kwargs)
         elif node_type == "Wyjście":
@@ -34,7 +37,7 @@ class NetworkManager:
         else:
             self._add_server(label, node_type, kwargs)
         
-        self.state["graph"].add_node(label, type=node_type)
+        self.state["graph"].add_node(label, type=node_type, color=COLOR_TYPES.get(queue_type))
         self._update_layout()
 
     def _add_generator(self, label, kwargs):
@@ -109,34 +112,47 @@ class NetworkManager:
             return False
 
         # Remove existing edges from this source
-        edges_to_remove = list(self.state["graph"].out_edges(source))
+        edges_to_remove = list(self.state["graph"].out_edges(source, keys=True))
         self.state["graph"].remove_edges_from(edges_to_remove)
 
+        # Store each route with probability and destination
         for patient_type, route_info in transformation_probs.items():
-            valid_routes = [route for route in route_info['routes']]
+            valid_routes = []
             
-            if valid_routes:  # Only add if there are valid routes
-                transformation_probs[patient_type]['routes'] = valid_routes
-                self.state["nodes"][source]['routes'][patient_type] = {
-                    "type": "random",
-                    "routes": valid_routes
-                }
-
-            # Add edges to graph for visualization
-            for route in valid_routes:
+            for route in route_info['routes']:
                 destination_label = route['destination']
                 if destination_label in self.state["nodes"] and route['probability'] > 0.001:
                     destination_id = self.state["nodes"][destination_label]["id"]
-                    patient_color = route['request']
-                    # st.write(route, patient_type)
+                    
+                    # Store each valid route with probability and request type
+                    valid_routes.append({
+                        "probability": route["probability"],
+                        "destination": destination_label,
+                        "request": route["request"]
+                    })
+
+                    # Improved label for the edge
+                    label_text = f"{patient_type} -> {route['request']} ({route['probability']:.1f})"
+                    patient_color = route["request"]
+
+                    # Add edge to the graph with detailed label
                     self.state["graph"].add_edge(
                         source,
                         destination_label,
                         color=COLOR_MAP.get(patient_color, "black"),
-                        label=f"{patient_type} ({route['probability']:.1f})"
+                        label=label_text
                     )
 
+            # Store valid routes in the node's state for JSON generation
+            if valid_routes:
+                self.state["nodes"][source]['routes'][patient_type] = {
+                    "type": "random",
+                    "routes": valid_routes
+                }
+        
         return True
+
+
 
     def _update_layout(self):
         if not self.state["layout"] or len(self.state["graph"]) != len(self.state["layout"]):
@@ -145,18 +161,17 @@ class NetworkManager:
     def draw_graph(self):
         if not self.state["graph"].nodes():
             return
-        
+
         # Create a new Graphviz object
         dot = graphviz.Digraph()
         dot.attr(rankdir='LR')
         
         # Set default node attributes
-        dot.attr('node', shape='rectangle', style='filled', fillcolor='white', 
-                fontname='Arial', width='1.5', height='0.6')
+        dot.attr('node', shape='rectangle', style='filled', fontname='Arial', width='1.5', height='0.6')
         
         # Add nodes
-        for node in self.state["graph"].nodes():
-            dot.node(node, node)
+        for node in self.state["graph"].nodes(data=True):
+            dot.node(node[0], node[0], fillcolor=node[1].get('color'))
         
         # Add edges with proper formatting
         for source, target, data in self.state["graph"].edges(data=True):
@@ -172,11 +187,12 @@ class NetworkManager:
             }
             edge_color = color_map.get(color, color)
             
-            dot.edge(source, target, label=label, color=edge_color, 
-                    fontcolor=edge_color, penwidth='2')
+            dot.edge(source, target, label=label, color=edge_color, fontcolor=edge_color, penwidth='2')
 
-        # Return the Graphviz object
+        
         return dot
+
+
 
     def generate_json(self):
         generators = []
@@ -205,9 +221,9 @@ class NetworkManager:
             
             generators.append(generator)
 
-        # Clean up servers format for JSON
+        # Process server nodes for JSON format
         servers = []
-        for server in self.state["nodes"].values():
+        for server_label, server in self.state["nodes"].items():
             if not server.get("output") and server.get("type") != "generator":
                 cleaned_routes = {}
                 
@@ -219,7 +235,7 @@ class NetworkManager:
                             "routes": []
                         }
                         
-                        # Process each route
+                        # Convert destination labels to IDs for each route
                         for route in route_data["routes"]:
                             dest_label = route["destination"]
                             if "Wyjście" in dest_label:
@@ -230,7 +246,6 @@ class NetworkManager:
                                     "request_type": None
                                 }
                             else:
-                                # Convert destination label to ID for other nodes
                                 dest_id = self.state["nodes"][dest_label]["id"]
                                 cleaned_route = {
                                     "probability": route["probability"],
@@ -238,11 +253,8 @@ class NetworkManager:
                                     "request_type": route["request"]
                                 }
                             cleaned_routes[ptype]["routes"].append(cleaned_route)
-                        
-                        # Only include patient type if it has valid routes
-                        if not cleaned_routes[ptype]["routes"]:
-                            del cleaned_routes[ptype]
-                
+
+                # Only include patient type if it has valid routes
                 server_copy = server.copy()
                 server_copy["routes"] = cleaned_routes
                 servers.append(server_copy)
@@ -251,6 +263,19 @@ class NetworkManager:
             "servers": servers,
             "generators": generators
         }
+    
+def display_legend():
+    """Display the server type legend as a row of labels."""
+    st.subheader("Server Types Legend")
+    
+    legend_items = ""
+    for server_type, color in COLOR_TYPES.items():
+        legend_items += f"<span style='background-color:{color}; padding:5px 10px; " \
+                        f"border-radius:5px; color:white; display:inline-block; margin-right:10px;'>" \
+                        f"{server_type}</span>"
+    
+    st.markdown(legend_items, unsafe_allow_html=True)
+
 
 def main():
     st.title("Network Graph Builder")
@@ -335,8 +360,8 @@ def main():
                     
                     total_prob = sum(probs)
                     st.write(f"Total probability: {total_prob:.2f}")
-                    if not ((0.99 <= total_prob <= 1.01) or (-0.001 <= total_prob <= 0.01)):
-                        st.warning("Total probability must equal either 1.0 or 0")
+                    if not (0.99 <= total_prob <= 1.01):
+                        st.warning("Total probability must equal 1.0")
                     
                     for prob, dest, target_type in zip(probs, dests, PATIENT_TYPES):
                         transformation_probs[ptype]['routes'].append({
@@ -346,25 +371,37 @@ def main():
                         })
 
             if st.button("Connect"):
-                network.connect_nodes(source, transformation_probs)
+                if sum([x.get('probability') for item in transformation_probs.values() for x in item.get('routes')]) > 2.999:
+                    network.connect_nodes(source, transformation_probs)
+                else:
+                    st.warning("Set probabilities for each type of patient")
 
     dot = network.draw_graph()
     if dot:
         st.graphviz_chart(dot)
 
+    col1, col2 = st.columns(2)
+    with col2:
+        time = st.number_input(f"Time for simulation", 
+                                                5, 120, 30, 5,
+                                                key=f"sim_time")
+    with col1:
+        if st.button("Simulate"):
+            json_data = network.generate_json()
+            # st.json(json_data)
+            json_str = json.dumps(json_data, indent=2)
+            # st.download_button("Download JSON", data=json_str, 
+            #                   file_name="network.json", mime="application/json")
+            path = "configs/networks/network.json"
+            with open(path,"w") as file:
+                file.write(json_str)
 
+            simulate(path,duration=time)
+            # os.remove(path)
+    display_legend()
+            
 
-    # JSON generation
-    if st.button("Generate JSON"):
-        json_data = network.generate_json()
-        st.json(json_data)
-        json_str = json.dumps(json_data, indent=2)
-        st.download_button("Download JSON", data=json_str, 
-                          file_name="network.json", mime="application/json")
-        
-    return network.state
         
 
 if __name__ == "__main__":
-    dot = main()
-    print(dot.get('nodes'))
+    main()
