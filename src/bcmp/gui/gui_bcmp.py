@@ -131,13 +131,16 @@ class NetworkManager:
                         "request": route["request"]
                     })
 
-                    # Add edge to the graph for visualization
+                    # Improved label for the edge
+                    label_text = f"{patient_type} -> {route['request']} ({route['probability']:.1f})"
                     patient_color = route["request"]
+
+                    # Add edge to the graph with detailed label
                     self.state["graph"].add_edge(
                         source,
                         destination_label,
                         color=COLOR_MAP.get(patient_color, "black"),
-                        label=f"{patient_type} ({route['probability']:.1f})"
+                        label=label_text
                     )
 
             # Store valid routes in the node's state for JSON generation
@@ -150,6 +153,7 @@ class NetworkManager:
         return True
 
 
+
     def _update_layout(self):
         if not self.state["layout"] or len(self.state["graph"]) != len(self.state["layout"]):
             self.state["layout"] = nx.spring_layout(self.state["graph"], k=1, iterations=50)
@@ -157,7 +161,8 @@ class NetworkManager:
     def draw_graph(self):
         if not self.state["graph"].nodes():
             return
-        
+
+        # Create a new Graphviz object
         dot = graphviz.Digraph()
         dot.attr(rankdir='LR')
         
@@ -168,8 +173,8 @@ class NetworkManager:
         for node in self.state["graph"].nodes(data=True):
             dot.node(node[0], node[0], fillcolor=node[1].get('color'))
         
-        # Add edges with proper formatting, including multiple edges
-        for source, target, key, data in self.state["graph"].edges(keys=True, data=True):
+        # Add edges with proper formatting
+        for source, target, data in self.state["graph"].edges(data=True):
             color = data.get("color", "black")
             label = data.get("label", "")
             
@@ -182,10 +187,11 @@ class NetworkManager:
             }
             edge_color = color_map.get(color, color)
             
-            # Adding each edge individually for multi-edge display
             dot.edge(source, target, label=label, color=edge_color, fontcolor=edge_color, penwidth='2')
 
+        
         return dot
+
 
 
     def generate_json(self):
@@ -257,6 +263,18 @@ class NetworkManager:
             "servers": servers,
             "generators": generators
         }
+    
+def display_legend():
+    """Display the server type legend as a row of labels."""
+    st.subheader("Server Types Legend")
+    
+    legend_items = ""
+    for server_type, color in COLOR_TYPES.items():
+        legend_items += f"<span style='background-color:{color}; padding:5px 10px; " \
+                        f"border-radius:5px; color:white; display:inline-block; margin-right:10px;'>" \
+                        f"{server_type}</span>"
+    
+    st.markdown(legend_items, unsafe_allow_html=True)
 
 
 def main():
@@ -380,6 +398,7 @@ def main():
 
             simulate(path,duration=time)
             # os.remove(path)
+    display_legend()
             
 
         
