@@ -31,14 +31,14 @@
           "type": "random",
           "routes": [
             {
-              "probability": 0.4,
+              "probability": 1.0,
               "destination": null,
               "request_type": null
             },
             {
-              "probability": 0.6,
-              "destination": null,
-              "request_type": null
+              "probability": 0.0,
+              "destination": 1,
+              "request_type": "Stabilny"
             },
             {
               "probability": 0.0,

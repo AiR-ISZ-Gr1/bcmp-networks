@@ -15,13 +15,11 @@ def avg_requests_per_class(df):
 
     df['ts'] = df['ts'].apply(parse_timestamp)
 
-    avg_requests_per_class_server = df.groupby(['source', 'new_type'])['request_id'].nunique().groupby(level=0).mean()
+    avg_requests_per_class_server = df.groupby(['source', 'type'])['request_id'].nunique().groupby(level=0).mean()
 
     results_df = pd.DataFrame({
         'avg_requests_per_class': avg_requests_per_class_server,
     }).reset_index()
-
-    st.write("Average number of requests per class")
     st.write(results_df)
     
     
@@ -32,7 +30,9 @@ def procces_time_all_servers(df):
             data_subset = df[df['source'] == source]
             plot_avg_time_request_server_with_type(data_subset, server_name=source)
             
-    def plot_avg_time_request_server_with_type(data_subset, server_name):
+    
+def plot_avg_time_request_server_with_type(data_subset, server_name):
+    if not data_subset['ts'].isna().all():
         data_subset['ts'] = pd.to_timedelta(data_subset['ts'])
         data_subset = data_subset.sort_values(by=['request_id', 'ts'])
 
@@ -50,8 +50,8 @@ def procces_time_all_servers(df):
             group = group.reset_index(drop=True)  #
             last_type = None
             for i, row in group.iterrows():
-                if row['action'] == 'received' or (last_type and row.get('new_type') != last_type):
-                    current_type = row.get('new_type') if row.get('new_type') else 'initial'
+                if row['action'] == 'received' or (last_type and row.get('type') != last_type):
+                    current_type = row.get('type') if row.get('type') else 'initial'
                     new_request_id = f"{request_id}_{i}_{current_type}"
                     
                 if row['action'] == 'received':
@@ -62,7 +62,6 @@ def procces_time_all_servers(df):
                     end_time = row['ts']
                     processing_time = (end_time - start_time).total_seconds()
 
-                    # print(f"Request ID: {new_request_id}, Processing Time: {processing_time}, Type: {last_type}")
                     if processing_time > 0:
                         processing_intervals.append({
                             'request_id': new_request_id, 
@@ -81,14 +80,12 @@ def procces_time_all_servers(df):
             
             st.title(f"Average Processing Time for each Request ID with Type ||| {server_name}")
 
-            # Define legend labels for types
             legend_labels = {
                 "red": "Krytyczny",
                 "yellow": "Stabilny",
                 "green": "Symulant"
             }
 
-            # Plotting
             fig, ax = plt.subplots(figsize=(10, 6))
             color = average_processing_time_df['new_type']
             ax.bar(average_processing_time_df['request_id'], average_processing_time_df['processing_time'], color=color)
@@ -96,19 +93,14 @@ def procces_time_all_servers(df):
             ax.set_ylabel('Average Processing Time (seconds)')
             ax.set_title(f'Average Processing Time for each Request ID with Type ||| {server_name}')
 
-            # Create custom legend handles
             handles = [
                 plt.Line2D([0], [0], marker='o', color=color, label=label, markersize=10, linestyle='None')
                 for color, label in legend_labels.items()
             ]
             ax.legend(handles=handles, title="Typy")
 
-            # Hide x-axis ticks
             ax.set_xticks([])
-
-            # Display the plot in Streamlit
             st.pyplot(fig)
         else:
-            print(f"No valid processing times for source subset.")
-    
+            st.write(f"No valid processing times for source subset.")
     

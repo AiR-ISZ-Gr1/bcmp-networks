@@ -3,10 +3,9 @@ import networkx as nx
 import json, os
 import graphviz
 from bcmp.simulation import simulate
-from bcmp.plots import avg_requests_per_class
+from bcmp.plots import avg_requests_per_class, procces_time_all_servers
 
 import pandas as pd
-
 
 PATIENT_TYPES = ["Krytyczny", "Stabilny", "Symulant"]
 NODE_TYPES = ["Rejestracja", "Poczekalnia", "Badania", "Gabinet lekarski", 
@@ -284,6 +283,8 @@ def display_legend():
 
 
 def main():
+    
+    analitycs = False
     st.title("Network Graph Builder")
     
     network = NetworkManager()
@@ -405,13 +406,17 @@ def main():
             print(sim_id)
             json_link = f"logs/{sim_id}.jsonl"
             data_visual = pd.read_json(json_link, lines=True)
+            analitycs = True
             
-            avg_requests_per_class(data_visual)
-            procces_time_all_servers(data_visual)
+            
+            # procces_time_all_servers(data_visual)
             
             # os.remove(path)
     display_legend()
-            
+    if analitycs:
+        avg_requests_per_class(data_visual)
+        procces_time_all_servers(data_visual)
+                
 
         
 
