@@ -18,7 +18,7 @@ class NetworkManager:
     def __init__(self,nodes={}):
         if "network_manager" not in st.session_state:
             st.session_state.network_manager = {
-                "graph": nx.DiGraph(),
+                "graph": nx.MultiDiGraph(),
                 "nodes": {},
                 "generators": {},
                 "layout": None
@@ -112,26 +112,27 @@ class NetworkManager:
             return False
 
         # Remove existing edges from this source
-        edges_to_remove = list(self.state["graph"].out_edges(source))
+        edges_to_remove = list(self.state["graph"].out_edges(source, keys=True))
         self.state["graph"].remove_edges_from(edges_to_remove)
 
+        # Store each route with probability and destination
         for patient_type, route_info in transformation_probs.items():
-            valid_routes = [route for route in route_info['routes']]
+            valid_routes = []
             
-            if valid_routes:  # Only add if there are valid routes
-                transformation_probs[patient_type]['routes'] = valid_routes
-                self.state["nodes"][source]['routes'][patient_type] = {
-                    "type": "random",
-                    "routes": valid_routes
-                }
-
-            # Add edges to graph for visualization
-            for route in valid_routes:
+            for route in route_info['routes']:
                 destination_label = route['destination']
                 if destination_label in self.state["nodes"] and route['probability'] > 0.001:
                     destination_id = self.state["nodes"][destination_label]["id"]
-                    patient_color = route['request']
-                    # st.write(route, patient_type)
+                    
+                    # Store each valid route with probability and request type
+                    valid_routes.append({
+                        "probability": route["probability"],
+                        "destination": destination_label,
+                        "request": route["request"]
+                    })
+
+                    # Add edge to the graph for visualization
+                    patient_color = route["request"]
                     self.state["graph"].add_edge(
                         source,
                         destination_label,
@@ -139,7 +140,15 @@ class NetworkManager:
                         label=f"{patient_type} ({route['probability']:.1f})"
                     )
 
+            # Store valid routes in the node's state for JSON generation
+            if valid_routes:
+                self.state["nodes"][source]['routes'][patient_type] = {
+                    "type": "random",
+                    "routes": valid_routes
+                }
+        
         return True
+
 
     def _update_layout(self):
         if not self.state["layout"] or len(self.state["graph"]) != len(self.state["layout"]):
@@ -149,20 +158,18 @@ class NetworkManager:
         if not self.state["graph"].nodes():
             return
         
-        # Create a new Graphviz object
         dot = graphviz.Digraph()
         dot.attr(rankdir='LR')
         
         # Set default node attributes
-        dot.attr('node', shape='rectangle', style='filled', 
-                fontname='Arial', width='1.5', height='0.6')
+        dot.attr('node', shape='rectangle', style='filled', fontname='Arial', width='1.5', height='0.6')
         
         # Add nodes
         for node in self.state["graph"].nodes(data=True):
-            dot.node(node[0], node[0],fillcolor=node[1].get('color'))
+            dot.node(node[0], node[0], fillcolor=node[1].get('color'))
         
-        # Add edges with proper formatting
-        for source, target, data in self.state["graph"].edges(data=True):
+        # Add edges with proper formatting, including multiple edges
+        for source, target, key, data in self.state["graph"].edges(keys=True, data=True):
             color = data.get("color", "black")
             label = data.get("label", "")
             
@@ -175,11 +182,11 @@ class NetworkManager:
             }
             edge_color = color_map.get(color, color)
             
-            dot.edge(source, target, label=label, color=edge_color, 
-                    fontcolor=edge_color, penwidth='2')
+            # Adding each edge individually for multi-edge display
+            dot.edge(source, target, label=label, color=edge_color, fontcolor=edge_color, penwidth='2')
 
-        # Return the Graphviz object
         return dot
+
 
     def generate_json(self):
         generators = []
@@ -208,9 +215,9 @@ class NetworkManager:
             
             generators.append(generator)
 
-        # Clean up servers format for JSON
+        # Process server nodes for JSON format
         servers = []
-        for server in self.state["nodes"].values():
+        for server_label, server in self.state["nodes"].items():
             if not server.get("output") and server.get("type") != "generator":
                 cleaned_routes = {}
                 
@@ -222,7 +229,7 @@ class NetworkManager:
                             "routes": []
                         }
                         
-                        # Process each route
+                        # Convert destination labels to IDs for each route
                         for route in route_data["routes"]:
                             dest_label = route["destination"]
                             if "Wyjście" in dest_label:
@@ -233,7 +240,6 @@ class NetworkManager:
                                     "request_type": None
                                 }
                             else:
-                                # Convert destination label to ID for other nodes
                                 dest_id = self.state["nodes"][dest_label]["id"]
                                 cleaned_route = {
                                     "probability": route["probability"],
@@ -241,11 +247,8 @@ class NetworkManager:
                                     "request_type": route["request"]
                                 }
                             cleaned_routes[ptype]["routes"].append(cleaned_route)
-                        
-                        # Only include patient type if it has valid routes
-                        if not cleaned_routes[ptype]["routes"]:
-                            del cleaned_routes[ptype]
-                
+
+                # Only include patient type if it has valid routes
                 server_copy = server.copy()
                 server_copy["routes"] = cleaned_routes
                 servers.append(server_copy)
@@ -254,6 +257,7 @@ class NetworkManager:
             "servers": servers,
             "generators": generators
         }
+
 
 def main():
     st.title("Network Graph Builder")
@@ -375,7 +379,7 @@ def main():
                 file.write(json_str)
 
             simulate(path,duration=time)
-            os.remove(path)
+            # os.remove(path)
             
 
         
