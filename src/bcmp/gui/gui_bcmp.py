@@ -3,6 +3,10 @@ import networkx as nx
 import json, os
 import graphviz
 from bcmp.simulation import simulate
+from bcmp.plots import avg_requests_per_class
+
+import pandas as pd
+
 
 PATIENT_TYPES = ["Krytyczny", "Stabilny", "Symulant"]
 NODE_TYPES = ["Rejestracja", "Poczekalnia", "Badania", "Gabinet lekarski", 
@@ -396,7 +400,15 @@ def main():
             with open(path,"w") as file:
                 file.write(json_str)
 
-            simulate(path,duration=time)
+            sim_id = simulate(path,duration=time)
+            
+            print(sim_id)
+            json_link = f"logs/{sim_id}.jsonl"
+            data_visual = pd.read_json(json_link, lines=True)
+            
+            avg_requests_per_class(data_visual)
+            procces_time_all_servers(data_visual)
+            
             # os.remove(path)
     display_legend()
             

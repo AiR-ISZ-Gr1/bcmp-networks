@@ -1,4 +1,109 @@
 {
-  "servers": [],
-  "generators": []
+  "servers": [
+    {
+      "id": 1,
+      "type": "fifo",
+      "params": {
+        "buffer_size": 5
+      },
+      "process": {
+        "Krytyczny": {
+          "type": "exponential",
+          "params": {
+            "lambda_": 1.0
+          }
+        },
+        "Stabilny": {
+          "type": "exponential",
+          "params": {
+            "lambda_": 1.0
+          }
+        },
+        "Symulant": {
+          "type": "exponential",
+          "params": {
+            "lambda_": 1.0
+          }
+        }
+      },
+      "routes": {
+        "Krytyczny": {
+          "type": "random",
+          "routes": [
+            {
+              "probability": 0.4,
+              "destination": null,
+              "request_type": null
+            },
+            {
+              "probability": 0.6,
+              "destination": null,
+              "request_type": null
+            },
+            {
+              "probability": 0.0,
+              "destination": 1,
+              "request_type": "Symulant"
+            }
+          ]
+        },
+        "Stabilny": {
+          "type": "random",
+          "routes": [
+            {
+              "probability": 0.0,
+              "destination": 1,
+              "request_type": "Krytyczny"
+            },
+            {
+              "probability": 0.0,
+              "destination": 1,
+              "request_type": "Stabilny"
+            },
+            {
+              "probability": 0.0,
+              "destination": 1,
+              "request_type": "Symulant"
+            }
+          ]
+        },
+        "Symulant": {
+          "type": "random",
+          "routes": [
+            {
+              "probability": 0.0,
+              "destination": 1,
+              "request_type": "Krytyczny"
+            },
+            {
+              "probability": 0.0,
+              "destination": 1,
+              "request_type": "Stabilny"
+            },
+            {
+              "probability": 0.0,
+              "destination": 1,
+              "request_type": "Symulant"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "generators": [
+    {
+      "id": 2,
+      "route": {
+        "destination": 1,
+        "request_type": "Krytyczny"
+      },
+      "priority": 1.0,
+      "generate": {
+        "type": "poisson",
+        "params": {
+          "lambda_": 1.0
+        }
+      }
+    }
+  ]
 }
