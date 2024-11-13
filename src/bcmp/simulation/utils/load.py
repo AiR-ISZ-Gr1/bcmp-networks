@@ -25,9 +25,9 @@ def create_network(config: NetworkConfig, message_bus: MessageBus, timer: Timer,
 def create_server(config: ServerConfig, message_bus: MessageBus, timer: Timer, logger: Logger) -> Server:
     get_processing_time = {req_type: create_distribution(config.process[req_type])
                            for req_type in RequestType}
-    route_request = {req_type: create_routing(config.routes[req_type])
+    route_request = {req_type.value: create_routing(config.routes[req_type])
                      for req_type in RequestType}
-
+    
     server_args = config.params | dict(
         id=config.id,
         logger=logger,

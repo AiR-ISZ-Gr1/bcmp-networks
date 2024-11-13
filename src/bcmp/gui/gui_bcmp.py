@@ -2,12 +2,14 @@ import streamlit as st
 import networkx as nx
 import json
 import graphviz
-# Constants
+from bcmp.simulation import simulate
+
 PATIENT_TYPES = ["Krytyczny", "Stabilny", "Symulant"]
 NODE_TYPES = ["Rejestracja", "Poczekalnia", "Badania", "Gabinet lekarski", 
               "Sala przyjęć", "Oddział", "Wejście", "Wyjście"]
 SERVER_TYPES = ["FIFO", "LIFO-PR", "PS", "IS"]
 COLOR_MAP = {"Krytyczny": "red", "Stabilny": "forestgreen", "Symulant": "gold"}
+COLOR_TYPES = {"FIFO":"#B3A254","LIFO-PR":"#8B4C4C","PS":"#4C6E8B","IS":"#4C8B57"}
 DEFAULT_LAMBDA = 1.0
 DEFAULT_BUFFER_SIZE = 5
 DEFAULT_PRIORITY = 1.0
@@ -27,6 +29,7 @@ class NetworkManager:
                 self.add_node(node)
     
     def add_node(self, node_type, label, **kwargs):
+        queue_type = kwargs.get("queue_type")
         if node_type == "Wejście":
             self._add_generator(label, kwargs)
         elif node_type == "Wyjście":
@@ -34,7 +37,7 @@ class NetworkManager:
         else:
             self._add_server(label, node_type, kwargs)
         
-        self.state["graph"].add_node(label, type=node_type)
+        self.state["graph"].add_node(label, type=node_type, color=COLOR_TYPES.get(queue_type))
         self._update_layout()
 
     def _add_generator(self, label, kwargs):
@@ -151,12 +154,12 @@ class NetworkManager:
         dot.attr(rankdir='LR')
         
         # Set default node attributes
-        dot.attr('node', shape='rectangle', style='filled', fillcolor='white', 
+        dot.attr('node', shape='rectangle', style='filled', 
                 fontname='Arial', width='1.5', height='0.6')
         
         # Add nodes
-        for node in self.state["graph"].nodes():
-            dot.node(node, node)
+        for node in self.state["graph"].nodes(data=True):
+            dot.node(node[0], node[0],fillcolor=node[1].get('color'))
         
         # Add edges with proper formatting
         for source, target, data in self.state["graph"].edges(data=True):
@@ -335,8 +338,8 @@ def main():
                     
                     total_prob = sum(probs)
                     st.write(f"Total probability: {total_prob:.2f}")
-                    if not ((0.99 <= total_prob <= 1.01) or (-0.001 <= total_prob <= 0.01)):
-                        st.warning("Total probability must equal either 1.0 or 0")
+                    if not (0.99 <= total_prob <= 1.01):
+                        st.warning("Total probability must equal 1.0")
                     
                     for prob, dest, target_type in zip(probs, dests, PATIENT_TYPES):
                         transformation_probs[ptype]['routes'].append({
@@ -346,25 +349,34 @@ def main():
                         })
 
             if st.button("Connect"):
-                network.connect_nodes(source, transformation_probs)
+                if sum([x.get('probability') for item in transformation_probs.values() for x in item.get('routes')]) > 2.999:
+                    network.connect_nodes(source, transformation_probs)
+                else:
+                    st.warning("Set probabilities for each type of patient")
 
     dot = network.draw_graph()
     if dot:
         st.graphviz_chart(dot)
 
+    col1, col2 = st.columns(2)
+    with col2:
+        time = st.number_input(f"Time for simulation", 
+                                                5, 120, 30, 5,
+                                                key=f"sim_time")
+    with col1:
+        if st.button("Simulate"):
+            json_data = network.generate_json()
+            # st.json(json_data)
+            json_str = json.dumps(json_data, indent=2)
+            # st.download_button("Download JSON", data=json_str, 
+            #                   file_name="network.json", mime="application/json")
+            path = "configs/networks/network.json"
+            with open(path,"w") as file:
+                file.write(json_str)
 
+            simulate(path,duration=time)
 
-    # JSON generation
-    if st.button("Generate JSON"):
-        json_data = network.generate_json()
-        st.json(json_data)
-        json_str = json.dumps(json_data, indent=2)
-        st.download_button("Download JSON", data=json_str, 
-                          file_name="network.json", mime="application/json")
-        
-    return network.state
         
 
 if __name__ == "__main__":
-    dot = main()
-    print(dot.get('nodes'))
+    main()

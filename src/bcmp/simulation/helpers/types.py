@@ -21,9 +21,9 @@ class Request:
 
 
 class RequestType(Enum):
-    TYPE1 = "Krytyczny"
-    TYPE2 = "Stabilny"
-    TYPE3 = "Symulant"
+    Krytyczny = "Krytyczny"
+    Stabilny = "Stabilny"
+    Symulant = "Symulant"
 
 
 type FinishProcessing = None
