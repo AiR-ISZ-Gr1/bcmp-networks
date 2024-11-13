@@ -13,7 +13,7 @@ DEFAULT_BUFFER_SIZE = 5
 DEFAULT_PRIORITY = 1.0
 
 class NetworkManager:
-    def __init__(self):
+    def __init__(self,nodes={}):
         if "network_manager" not in st.session_state:
             st.session_state.network_manager = {
                 "graph": nx.DiGraph(),
@@ -22,6 +22,9 @@ class NetworkManager:
                 "layout": None
             }
         self.state = st.session_state.network_manager
+        if nodes:
+            for node in nodes:
+                self.add_node(node)
     
     def add_node(self, node_type, label, **kwargs):
         if node_type == "Wejście":
@@ -145,7 +148,7 @@ class NetworkManager:
         
         # Create a new Graphviz object
         dot = graphviz.Digraph()
-        dot.attr(rankdir='LR')  # Left to right layout
+        dot.attr(rankdir='LR')
         
         # Set default node attributes
         dot.attr('node', shape='rectangle', style='filled', fillcolor='white', 
@@ -171,7 +174,7 @@ class NetworkManager:
             
             dot.edge(source, target, label=label, color=edge_color, 
                     fontcolor=edge_color, penwidth='2')
-        
+
         # Return the Graphviz object
         return dot
 
@@ -349,6 +352,8 @@ def main():
     if dot:
         st.graphviz_chart(dot)
 
+
+
     # JSON generation
     if st.button("Generate JSON"):
         json_data = network.generate_json()
@@ -356,6 +361,10 @@ def main():
         json_str = json.dumps(json_data, indent=2)
         st.download_button("Download JSON", data=json_str, 
                           file_name="network.json", mime="application/json")
+        
+    return network.state
+        
 
 if __name__ == "__main__":
-    main()
+    dot = main()
+    print(dot.get('nodes'))
