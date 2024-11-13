@@ -121,7 +121,7 @@ class NetworkManager:
             
             for route in route_info['routes']:
                 destination_label = route['destination']
-                if destination_label in self.state["nodes"] and route['probability'] > 0.001:
+                if destination_label in self.state["nodes"]:
                     destination_id = self.state["nodes"][destination_label]["id"]
                     
                     # Store each valid route with probability and request type
@@ -130,18 +130,18 @@ class NetworkManager:
                         "destination": destination_label,
                         "request": route["request"]
                     })
+                    if route['probability'] > 0.001:
+                        # Improved label for the edge
+                        label_text = f"{patient_type} -> {route['request']} ({route['probability']:.1f})"
+                        patient_color = route["request"]
 
-                    # Improved label for the edge
-                    label_text = f"{patient_type} -> {route['request']} ({route['probability']:.1f})"
-                    patient_color = route["request"]
-
-                    # Add edge to the graph with detailed label
-                    self.state["graph"].add_edge(
-                        source,
-                        destination_label,
-                        color=COLOR_MAP.get(patient_color, "black"),
-                        label=label_text
-                    )
+                        # Add edge to the graph with detailed label
+                        self.state["graph"].add_edge(
+                            source,
+                            destination_label,
+                            color=COLOR_MAP.get(patient_color, "black"),
+                            label=label_text
+                        )
 
             # Store valid routes in the node's state for JSON generation
             if valid_routes:
@@ -149,6 +149,7 @@ class NetworkManager:
                     "type": "random",
                     "routes": valid_routes
                 }
+
         
         return True
 
@@ -226,9 +227,10 @@ class NetworkManager:
         for server_label, server in self.state["nodes"].items():
             if not server.get("output") and server.get("type") != "generator":
                 cleaned_routes = {}
-                
+                print(server.get("routes", {}))
                 # Process each patient type's routes
                 for ptype, route_data in server.get("routes", {}).items():
+                    print(route_data["routes"])
                     if route_data["routes"]:
                         cleaned_routes[ptype] = {
                             "type": "random",
@@ -360,7 +362,7 @@ def main():
                     
                     total_prob = sum(probs)
                     st.write(f"Total probability: {total_prob:.2f}")
-                    if not (0.99 <= total_prob <= 1.01):
+                    if not ((0.99 <= total_prob <= 1.01) or (0 <= total_prob <=0.01)):
                         st.warning("Total probability must equal 1.0")
                     
                     for prob, dest, target_type in zip(probs, dests, PATIENT_TYPES):
@@ -371,10 +373,8 @@ def main():
                         })
 
             if st.button("Connect"):
-                if sum([x.get('probability') for item in transformation_probs.values() for x in item.get('routes')]) > 2.999:
-                    network.connect_nodes(source, transformation_probs)
-                else:
-                    st.warning("Set probabilities for each type of patient")
+                network.connect_nodes(source, transformation_probs)
+
 
     dot = network.draw_graph()
     if dot:
