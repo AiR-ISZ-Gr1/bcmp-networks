@@ -1,6 +1,6 @@
 import streamlit as st
 import networkx as nx
-import json
+import json, os
 import graphviz
 from bcmp.simulation import simulate
 
@@ -375,6 +375,8 @@ def main():
                 file.write(json_str)
 
             simulate(path,duration=time)
+            os.remove(path)
+            
 
         
 
