@@ -659,7 +659,7 @@ def main():
 
             sim_id = simulate(path,duration=time)
             
-            print(sim_id)
+            # print(sim_id)
             json_link = f"logs/{sim_id}.jsonl"
             data_visual = pd.read_json(json_link, lines=True)
             analitycs = True
@@ -673,7 +673,7 @@ def main():
         avg_requests_per_class(data_visual)
         procces_time_all_servers(data_visual)
 
-    print(network.state)
+    # print(network.state)
                 
 
         
