@@ -541,7 +541,7 @@ def main():
         if st.button("Clear Session"):
             network = NetworkManager()
             network.clear_session()
-            st.experimental_rerun()
+            st.rerun()
     
     network = NetworkManager()
     
