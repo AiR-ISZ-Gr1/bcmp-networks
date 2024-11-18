@@ -83,6 +83,7 @@ def get_default_state():
 
 def add_default_routes(nodes):
     """Adds the default routing configuration to the nodes"""
+    
     # Rejestracja-SOR routes
     nodes['Rejestracja-SOR']['routes'] = {
         'Krytyczny': {'type': 'random', 'routes': [
@@ -101,9 +102,136 @@ def add_default_routes(nodes):
             {'probability': 1.0, 'destination': 'Rejestracja-NiŚOZ', 'request': 'Symulant'}
         ]}
     }
+
+    # Rejestracja-NiŚOZ routes
+    nodes['Rejestracja-NiŚOZ']['routes'] = {
+        'Krytyczny': {'type': 'random', 'routes': [
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Krytyczny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Stabilny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Symulant'}
+        ]},
+        'Stabilny': {'type': 'random', 'routes': [
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Krytyczny'},
+            {'probability': 1.0, 'destination': 'Poczekalnia-NiŚOZ', 'request': 'Stabilny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Symulant'}
+        ]},
+        'Symulant': {'type': 'random', 'routes': [
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Krytyczny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Stabilny'},
+            {'probability': 1.0, 'destination': 'Poczekalnia-NiŚOZ', 'request': 'Symulant'}
+        ]}
+    }
     
-    # Add similar routing configurations for other nodes...
-    # (Add the rest of the routing configurations from your default state)
+    # Sala przyjęć routes
+    nodes['Sala przyjęć']['routes'] = {
+        'Krytyczny': {'type': 'random', 'routes': [
+            {'probability': 0.95, 'destination': 'Oddział', 'request': 'Krytyczny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Stabilny'},
+            {'probability': 0.05, 'destination': 'Dom', 'request': 'Symulant'}
+        ]},
+        'Stabilny': {'type': 'random', 'routes': [
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Krytyczny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Stabilny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Symulant'}
+        ]},
+        'Symulant': {'type': 'random', 'routes': [
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Krytyczny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Stabilny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Symulant'}
+        ]}
+    }
+    
+    # Poczekalnia-SOR routes
+    nodes['Poczekalnia-SOR']['routes'] = {
+        'Krytyczny': {'type': 'random', 'routes': [
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Krytyczny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Stabilny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Symulant'}
+        ]},
+        'Stabilny': {'type': 'random', 'routes': [
+            {'probability': 0.1, 'destination': 'Lekarz SOR', 'request': 'Krytyczny'},
+            {'probability': 0.9, 'destination': 'Lekarz SOR', 'request': 'Stabilny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Symulant'}
+        ]},
+        'Symulant': {'type': 'random', 'routes': [
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Krytyczny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Stabilny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Symulant'}
+        ]}
+    }
+
+    # Poczekalnia-NiŚOZ routes
+    nodes['Poczekalnia-NiŚOZ']['routes'] = {
+        'Krytyczny': {'type': 'random', 'routes': [
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Krytyczny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Stabilny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Symulant'}
+        ]},
+        'Stabilny': {'type': 'random', 'routes': [
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Krytyczny'},
+            {'probability': 1.0, 'destination': 'Lekarz NiŚOZ', 'request': 'Stabilny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Symulant'}
+        ]},
+        'Symulant': {'type': 'random', 'routes': [
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Krytyczny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Stabilny'},
+            {'probability': 1.0, 'destination': 'Lekarz NiŚOZ', 'request': 'Symulant'}
+        ]}
+    }
+    
+    # Complete for Lekarz SOR, Lekarz NiŚOZ, Diagnostyka, Dom, and Oddział
+    nodes['Lekarz SOR']['routes'] = {
+        'Krytyczny': {'type': 'random', 'routes': [
+            {'probability': 0.5, 'destination': 'Sala przyjęć', 'request': 'Krytyczny'},
+            {'probability': 0.5, 'destination': 'Diagnostyka', 'request': 'Stabilny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Symulant'}
+        ]},
+        'Stabilny': {'type': 'random', 'routes': [
+            {'probability': 0.1, 'destination': 'Sala przyjęć', 'request': 'Krytyczny'},
+            {'probability': 0.9, 'destination': 'Diagnostyka', 'request': 'Stabilny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Symulant'}
+        ]},
+        'Symulant': {'type': 'random', 'routes': [
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Krytyczny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Stabilny'},
+            {'probability': 1.0, 'destination': 'Dom', 'request': 'Symulant'}
+        ]}
+    }
+    nodes['Diagnostyka']['routes'] = {
+    'Krytyczny': {'type': 'random', 'routes': [
+        {'probability': 1.0, 'destination': 'Sala przyjęć', 'request': 'Krytyczny'},
+        {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Stabilny'},
+        {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Symulant'}
+    ]},
+    'Stabilny': {'type': 'random', 'routes': [
+        {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Krytyczny'},
+        {'probability': 1.0, 'destination': 'Lekarz SOR', 'request': 'Stabilny'},
+        {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Symulant'}
+    ]},
+    'Symulant': {'type': 'random', 'routes': [
+        {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Krytyczny'},
+        {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Stabilny'},
+        {'probability': 1.0, 'destination': 'Dom', 'request': 'Symulant'}
+    ]}
+    }
+
+    nodes['Lekarz NiŚOZ']['routes'] = {
+        'Krytyczny': {'type': 'random', 'routes': [
+            {'probability': 1.0, 'destination': 'Rejestracja-SOR', 'request': 'Krytyczny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Stabilny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Symulant'}
+        ]},
+        'Stabilny': {'type': 'random', 'routes': [
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Krytyczny'},
+            {'probability': 0.2, 'destination': 'Diagnostyka', 'request': 'Stabilny'},
+            {'probability': 0.8, 'destination': 'Dom', 'request': 'Symulant'}
+        ]},
+        'Symulant': {'type': 'random', 'routes': [
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Krytyczny'},
+            {'probability': 0.0, 'destination': 'Rejestracja-SOR', 'request': 'Stabilny'},
+            {'probability': 1.0, 'destination': 'Dom', 'request': 'Symulant'}
+        ]}
+    }
 
 def add_default_edges(graph, nodes, generators):
     """Adds the default edges to the graph based on routing information"""

@@ -520,9 +520,9 @@
               "request_type": "Stabilny"
             },
             {
-              "probability": 0.0,
-              "destination": 1,
-              "request_type": "Symulant"
+              "probability": 1.0,
+              "destination": null,
+              "request_type": null
             }
           ]
         }
@@ -559,7 +559,7 @@
           "type": "random",
           "routes": [
             {
-              "probability": 0.0,
+              "probability": 1.0,
               "destination": 1,
               "request_type": "Krytyczny"
             },
@@ -584,12 +584,12 @@
               "request_type": "Krytyczny"
             },
             {
-              "probability": 0.7,
+              "probability": 0.2,
               "destination": 13,
               "request_type": "Stabilny"
             },
             {
-              "probability": 0.3,
+              "probability": 0.8,
               "destination": null,
               "request_type": null
             }
@@ -604,12 +604,12 @@
               "request_type": "Krytyczny"
             },
             {
-              "probability": 0.1,
-              "destination": 13,
+              "probability": 0.0,
+              "destination": 1,
               "request_type": "Stabilny"
             },
             {
-              "probability": 0.9,
+              "probability": 1.0,
               "destination": null,
               "request_type": null
             }
@@ -648,8 +648,8 @@
           "type": "random",
           "routes": [
             {
-              "probability": 0.0,
-              "destination": 1,
+              "probability": 1.0,
+              "destination": 8,
               "request_type": "Krytyczny"
             },
             {
@@ -668,19 +668,19 @@
           "type": "random",
           "routes": [
             {
-              "probability": 0.2,
-              "destination": null,
-              "request_type": null
+              "probability": 0.0,
+              "destination": 1,
+              "request_type": "Krytyczny"
             },
             {
-              "probability": 0.5,
-              "destination": 9,
+              "probability": 1.0,
+              "destination": 11,
               "request_type": "Stabilny"
             },
             {
-              "probability": 0.3,
-              "destination": null,
-              "request_type": null
+              "probability": 0.0,
+              "destination": 1,
+              "request_type": "Symulant"
             }
           ]
         },
@@ -698,9 +698,9 @@
               "request_type": "Stabilny"
             },
             {
-              "probability": 0.0,
-              "destination": 1,
-              "request_type": "Symulant"
+              "probability": 1.0,
+              "destination": null,
+              "request_type": null
             }
           ]
         }
