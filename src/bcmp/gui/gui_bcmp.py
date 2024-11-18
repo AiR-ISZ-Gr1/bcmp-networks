@@ -11,7 +11,7 @@ PATIENT_TYPES = ["Krytyczny", "Stabilny", "Symulant"]
 NODE_TYPES = ["Rejestracja", "Poczekalnia", "Badania", "Gabinet lekarski", 
               "Sala przyjęć", "Oddział", "Wejście", "Wyjście"]
 SERVER_TYPES = ["FIFO", "LIFO-PR", "PS", "IS"]
-COLOR_MAP = {"Krytyczny": "red", "Stabilny": "forestgreen", "Symulant": "gold"}
+COLOR_MAP = {"Krytyczny": "red", "Stabilny": "gold", "Symulant": "forestgreen"}
 COLOR_TYPES = {"FIFO":"#B3A254","LIFO-PR":"#8B4C4C","PS":"#4C6E8B","IS":"#4C8B57"}
 DEFAULT_LAMBDA = 1.0
 DEFAULT_BUFFER_SIZE = 5
@@ -212,7 +212,7 @@ class NetworkManager:
             if gen_data["route"]:
                 dest_label = next((node_label for node_label, node in self.state["nodes"].items() 
                                 if node["id"] == gen_data["route"]["destination"]), None)
-                if dest_label and "Wyjście" not in dest_label:
+                if dest_label and not all(str(x) in dest_label for x in ["Oddział","Dom","Wyjście" ] ):
                     generator["route"] = {
                         "destination": gen_data["route"]["destination"],
                         "request_type": gen_data["route"]["request_type"]
@@ -230,10 +230,8 @@ class NetworkManager:
         for server_label, server in self.state["nodes"].items():
             if not server.get("output") and server.get("type") != "generator":
                 cleaned_routes = {}
-                print(server.get("routes", {}))
                 # Process each patient type's routes
                 for ptype, route_data in server.get("routes", {}).items():
-                    print(route_data["routes"])
                     if route_data["routes"]:
                         cleaned_routes[ptype] = {
                             "type": "random",
@@ -243,7 +241,7 @@ class NetworkManager:
                         # Convert destination labels to IDs for each route
                         for route in route_data["routes"]:
                             dest_label = route["destination"]
-                            if "Wyjście" in dest_label:
+                            if "Dom" in dest_label or "Oddział" in dest_label:
                                 # Set destination and request to null for exit nodes
                                 cleaned_route = {
                                     "probability": route["probability"],
