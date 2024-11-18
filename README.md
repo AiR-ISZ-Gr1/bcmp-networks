@@ -8,7 +8,7 @@ uv run src/bcmp/simulation/simulate.py
 
 Run GUI:
 ```
-uv synv
+uv sync
 streamlit run src/bcmp/gui/gui_bcmp.py 
 ```
  
