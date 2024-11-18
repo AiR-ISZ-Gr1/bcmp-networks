@@ -3,6 +3,7 @@ import datetime as dt
 import pandas as pd
 import streamlit as st 
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
 
 def avg_requests_per_class(df):
@@ -34,73 +35,71 @@ def procces_time_all_servers(df):
 def plot_avg_time_request_server_with_type(data_subset, server_name):
     if not data_subset['ts'].isna().all():
         data_subset['ts'] = pd.to_timedelta(data_subset['ts'])
-        data_subset = data_subset.sort_values(by=['request_id', 'ts'])
+    # print(data_subset)
+    data_subset = data_subset.sort_values(by=['request_id', 'ts'])
 
-        processing_intervals = []
-        new_request_id = None
+    processing_intervals = []
+    new_request_id = None
 
-        type_color_mapping = {
-            "type1": "green",
-            "type2": "yellow",
-            "type3": "red",
-            
-        }
+    type_color_mapping = {
+            "Symulant": "green",
+            "Stabilny": "yellow",
+            "Krytyczny": "red"
+    }
 
-        for request_id, group in data_subset.groupby('request_id'):
-            group = group.reset_index(drop=True)  #
-            last_type = None
-            for i, row in group.iterrows():
-                if row['action'] == 'received' or (last_type and row.get('type') != last_type):
-                    current_type = row.get('type') if row.get('type') else 'initial'
-                    new_request_id = f"{request_id}_{i}_{current_type}"
-                    
-                if row['action'] == 'received':
-                    start_time = row['ts']
-                    last_type = row['type']
+    for request_id, group in data_subset.groupby('request_id'):
+        group = group.reset_index(drop=True)
+        last_type = None
+        for i, row in group.iterrows():
+            if row['action'] == 'received' or (last_type and row.get('new_type') != last_type):
+                current_type = row.get('new_type') if row.get('new_type') else 'initial'
+                new_request_id = f"{request_id}_{i}_{current_type}"
                 
-                elif row['action'] in ['forwarded', 'rejected']:
-                    end_time = row['ts']
-                    processing_time = (end_time - start_time).total_seconds()
-
-                    if processing_time > 0:
-                        processing_intervals.append({
-                            'request_id': new_request_id, 
-                            'processing_time': processing_time, 
-                            'type': last_type
-                        })
-                        
-
-                    last_type = row.get('new_type', 'initial')
-
-        processing_intervals_df = pd.DataFrame(processing_intervals)
-        if not processing_intervals_df.empty:
+            if row['action'] == 'received':
+                start_time = row['ts']
+                last_type = row['type']
             
-            processing_intervals_df['new_type'] = processing_intervals_df['type'].map(type_color_mapping)
-            average_processing_time_df = processing_intervals_df.groupby(['request_id', 'new_type'])['processing_time'].mean().reset_index()
-            
-            st.title(f"Average Processing Time for each Request ID with Type ||| {server_name}")
+            elif row['action'] in ['forwarded', 'rejected']:
+                end_time = row['ts']
+                processing_time = (end_time - start_time).total_seconds()
 
-            legend_labels = {
-                "red": "Krytyczny",
-                "yellow": "Stabilny",
-                "green": "Symulant"
-            }
+                if processing_time > 0:
+                    processing_intervals.append({
+                        'request_id': new_request_id, 
+                        'processing_time': processing_time, 
+                        'type': last_type
+                    })
+                    
+                last_type = row.get('new_type', 'initial')
 
-            fig, ax = plt.subplots(figsize=(10, 6))
-            color = average_processing_time_df['new_type']
-            ax.bar(average_processing_time_df['request_id'], average_processing_time_df['processing_time'], color=color)
-            ax.set_xlabel('Request ID (with Type)')
-            ax.set_ylabel('Average Processing Time (seconds)')
-            ax.set_title(f'Average Processing Time for each Request ID with Type ||| {server_name}')
+    processing_intervals_df = pd.DataFrame(processing_intervals)
+    
+    if not processing_intervals_df.empty:
+        processing_intervals_df['new_type'] = processing_intervals_df['type'].map(type_color_mapping)
+        # 
+        average_processing_time_df = processing_intervals_df.groupby(['request_id', 'new_type'])['processing_time'].mean().reset_index()
+        
+        colors = average_processing_time_df['new_type']
+        st.title(f"Average Processing Time for each Request ID with Type ||| {server_name}")
 
-            handles = [
-                plt.Line2D([0], [0], marker='o', color=color, label=label, markersize=10, linestyle='None')
-                for color, label in legend_labels.items()
-            ]
-            ax.legend(handles=handles, title="Typy")
 
-            ax.set_xticks([])
-            st.pyplot(fig)
-        else:
-            st.write(f"No valid processing times for source subset.")
+        fig, ax = plt.subplots(figsize=(10, 6))
+        color = average_processing_time_df['new_type']
+        ax.bar(average_processing_time_df['request_id'], average_processing_time_df['processing_time'], color=color)
+        ax.set_xlabel('Request ID (with Type)')
+        ax.set_ylabel('Average Processing Time (seconds)')
+        ax.set_title(f'Average Processing Time for each Request ID with Type ||| {server_name}')
+
+        legend_elements = [
+        Line2D([0], [0], color="green", lw=2, label="Symulant"),
+        Line2D([0], [0], color="yellow", lw=2, label="Stabilny"),
+        Line2D([0], [0], color="red", lw=2, label="Krytyczny")
+    ]
+        plt.legend(handles=legend_elements, loc="upper left")
+
+
+        ax.set_xticks([])
+        st.pyplot(fig)
+    else:
+        st.write(f"No valid processing times for source subset.")
     
